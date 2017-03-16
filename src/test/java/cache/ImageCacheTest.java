@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ImageCacheTest {
 
     @Test
+    //тестируем простые put и get
     public void testPutGet() throws Exception {
         ImageCache cache = new ImageCacheWithoutFileSystem();
         assert cache.getFromCache(1) == null;
@@ -25,8 +26,9 @@ public class ImageCacheTest {
     }
 
     @Test
+    //тестируем превышение лимита
     public void testFileSystem() throws Exception {
-        //лимит 10 байт
+        //ставим лимит 10 байт
         ImageCacheWithFakeFileSystem cache = new ImageCacheWithFakeFileSystem(10);
         //кладем 5 байт
         int i1 = cache.putToCache(new byte[]{0, 2, 3, 7, 19});
@@ -44,21 +46,31 @@ public class ImageCacheTest {
     }
 
     @Test
+    //тестируем ситуацию когда сохранение в файловую систему происходит медленно
     public void testWithSlowFileSystem() throws Exception {
         ImageCacheWithFakeFileSystem cache = new ImageCacheWithFakeFileSystem(3);
+        //ломаем файловую систему
         cache.fileSystemIsWorking.set(false);
         int i1 = cache.putToCache(new byte[]{2, 3, 4, 1});
         Future<byte[]> future = Executors.newSingleThreadExecutor().submit(() -> cache.getFromCache(i1));
         assert !future.isDone();
         sleep(100);
         assert !future.isDone();
+        //чиним файловую систему
         cache.fileSystemIsWorking.set(true);
         sleep(100);
         assert future.isDone();
         assert Arrays.equals(future.get(), new byte[]{2, 3, 4, 1});
+
+        //ситуация когда сохранение в файловую систему так и не происходит
+        cache.fileSystemIsWorking.set(false);
+        int i2 = cache.putToCache(new byte[]{2, 3, 4, 1});
+        assert cache.getFromCache(i2) == null;
+
     }
 
     @Test
+    //В конкурентном режиме грузим кэш. В случае если not-thread-safe методы "придет" больше одного потока, то получим ошибку.
     public void testConcurrent() throws Exception {
         ImageCache cache = new ImageCacheWithNotThreadSafeFileSystem(20);
         List<Thread> threads = new ArrayList<>();
@@ -78,7 +90,7 @@ public class ImageCacheTest {
     }
 
 
-    //--------------------------Кэши для тестов------------------------------//
+    //--------------------------Всякое разное------------------------------//
 
 
     private static class ImageCacheWithNotThreadSafeFileSystem extends ImageCache {
@@ -141,14 +153,6 @@ public class ImageCacheTest {
         }
     }
 
-    private static void sleep(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private static class ImageCacheWithoutFileSystem extends ImageCache {
         @Override
         protected byte[] loadFromFile(String filename) {
@@ -159,4 +163,14 @@ public class ImageCacheTest {
         protected void saveToFile(String filename, byte[] data) {
         }
     }
+
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

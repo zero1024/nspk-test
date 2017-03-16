@@ -7,9 +7,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Supplier;
 
 /**
+ * Особенности реализации:
+ * <p>
+ * В случае если данные не влезают в память, то происходит сохранение данных на диск в отдельном потоке, а пользователю кэша сразу
+ * отдается id. Если пользователь тут же запросит эти данные, то он получит блокировку на методе get(), до тех пор пока данные не запишутся на диск.
+ *
  * @author Perekhod Oleg
  */
 
@@ -41,16 +45,13 @@ public abstract class ImageCache {
 
     public int putToCache(byte[] data) {
         int id = ids.incrementAndGet();
-        if (isFitToMemory(data)) {
+        if (isFitToMemory(data.length)) {
             map.put(id, new MemoryData(data));
         } else {
-            String filename = id + "";
-            LazyData lazyData = new LazyData(() -> safeCall(() -> loadFromFile(filename)));
+            String filename = filename(id);
+            LazyData lazyData = createLazyData(filename);
             map.put(id, lazyData);
-            executorService.submit(() -> safeCall(() -> {
-                saveToFile(filename, data);
-                lazyData.activate();
-            }));
+            asyncSaveToFile(data, filename, lazyData::activate);
         }
         return id;
     }
@@ -60,93 +61,48 @@ public abstract class ImageCache {
         return map.containsKey(id) ? map.get(id).getData() : null;
     }
 
-    //--------------Вспомогательные классы---------------------//
-
-    private interface Data {
-        byte[] getData();
-    }
-
-    private static class LazyData implements Data {
-
-        private final Supplier<byte[]> supplier;
-        private volatile boolean isActive = false;
-
-        private LazyData(Supplier<byte[]> supplier) {
-            this.supplier = supplier;
-        }
-
-        @Override
-        public byte[] getData() {
-            int tries = 1000;
-            while (!isActive) {
-                sleep10ms();
-                //если через 10 секунд ожидания так и не удалось получить доступ к файлу, то возращаем null
-                if (tries-- == 0) {
-                    return null;
-                }
-            }
-            return supplier.get();
-        }
-
-        private void activate() {
-            this.isActive = true;
-        }
-
-    }
-
-    private static class MemoryData implements Data {
-
-        private final byte[] data;
-
-        private MemoryData(byte[] data) {
-            this.data = data;
-        }
-
-        @Override
-        public byte[] getData() {
-            return data;
-        }
-
-    }
-
-
     //---------------------UTIL---------------------------//
 
-    private void safeCall(Runnable runnable) {
-        safeCall(() -> {
-            runnable.run();
-            return null;
+
+    private LazyData createLazyData(String filename) {
+        return new LazyData(() -> {
+            try {
+                lock.lock();
+                return loadFromFile(filename);
+            } finally {
+                lock.unlock();
+            }
         });
     }
 
-    private <V> V safeCall(Supplier<V> supplier) {
-        try {
-            lock.lock();
-            return supplier.get();
-        } finally {
-            lock.unlock();
-        }
+    //Асинхронное сохранение данных в файл. После успешного сохранения происходит вызов finalCallback.
+    private void asyncSaveToFile(byte[] data, String filename, Runnable finalCallback) {
+        executorService.submit(() -> {
+            try {
+                lock.lock();
+                saveToFile(filename, data);
+                finalCallback.run();
+            } finally {
+                lock.unlock();
+            }
+        });
     }
 
+    private static String filename(int id) {
+        return id + "";
+    }
 
-    private boolean isFitToMemory(byte[] data) {
+    //Проверяем, что данные влезают в память. В случае если влезают, то обновляем memoryUsage в CAS режиме.
+    private boolean isFitToMemory(int dataLength) {
         int prev, next;
         do {
             prev = memoryUsage.get();
-            next = prev + data.length;
+            next = prev + dataLength;
             if (next > memoryLimit) {
                 return false;
             }
         } while (!memoryUsage.compareAndSet(prev, next));
         return true;
-    }
-
-    private static void sleep10ms() {
-        try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
     }
 
 

@@ -38,7 +38,7 @@ public class Bank {
         Account fromAccount = getAccount(fromAccountNum);
         Account toAccount = getAccount(toAccountNum);
 
-        //2. проверяем заблокированы ли аккаунты (эти же самые проверки будут происходить во время снятие и добавления денег)
+        //2. проверяем заблокированы ли аккаунты (эти же самые проверки будут происходить во время снятия и добавления денег)
         fromAccount.checkIsBlocked();
         toAccount.checkIsBlocked();
 
