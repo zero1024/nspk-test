@@ -15,9 +15,6 @@ import java.util.function.Supplier;
 
 public abstract class ImageCache {
 
-    /**
-     * Лимит памяти в мегабайтах
-     */
     private final int memoryLimit;
     private final Map<Integer, Data> map;
     private final AtomicInteger memoryUsage;
@@ -25,8 +22,11 @@ public abstract class ImageCache {
     private final ExecutorService executorService;
     private final Lock lock = new ReentrantLock();
 
+    /**
+     * По умолчанию лимит памяти 100 Мб
+     */
     public ImageCache() {
-        this(100);
+        this(100 * 1024 * 1024);
     }
 
     public ImageCache(int memoryLimit) {
@@ -40,7 +40,7 @@ public abstract class ImageCache {
     //------------Публичное API-----------------//
 
     public int putToCache(byte[] data) {
-        int id = ids.get();
+        int id = ids.incrementAndGet();
         if (isFitToMemory(data)) {
             map.put(id, new MemoryData(data));
         } else {
@@ -78,13 +78,17 @@ public abstract class ImageCache {
         @Override
         public byte[] getData() {
             int tries = 1000;
-            while (!isActive && tries-- > 0) {
-                sleep(10);
+            while (!isActive) {
+                sleep10ms();
+                //если через 10 секунд ожидания так и не удалось получить доступ к файлу, то возращаем null
+                if (tries-- == 0) {
+                    return null;
+                }
             }
             return supplier.get();
         }
 
-        public void activate() {
+        private void activate() {
             this.isActive = true;
         }
 
@@ -126,12 +130,20 @@ public abstract class ImageCache {
 
 
     private boolean isFitToMemory(byte[] data) {
-        return (memoryUsage.get() + data.length) < memoryLimit * 1024 * 1024;
+        int prev, next;
+        do {
+            prev = memoryUsage.get();
+            next = prev + data.length;
+            if (next > memoryLimit) {
+                return false;
+            }
+        } while (!memoryUsage.compareAndSet(prev, next));
+        return true;
     }
 
-    private static void sleep(int millis) {
+    private static void sleep10ms() {
         try {
-            Thread.sleep(millis);
+            Thread.sleep(10);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
