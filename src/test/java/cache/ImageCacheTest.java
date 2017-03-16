@@ -2,8 +2,10 @@ package cache;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -54,10 +56,66 @@ public class ImageCacheTest {
         sleep(100);
         assert future.isDone();
         assert Arrays.equals(future.get(), new byte[]{2, 3, 4, 1});
-
-
     }
 
+    @Test
+    public void testConcurrent() throws Exception {
+        ImageCache cache = new ImageCacheWithNotThreadSafeFileSystem(20);
+        List<Thread> threads = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            Thread thread = new Thread(() -> {
+                for (int j = 0; j < 100; j++) {
+                    int id = cache.putToCache(new byte[]{2, 3});
+                    assert Arrays.equals(cache.getFromCache(id), new byte[]{2, 3});
+                }
+            });
+            threads.add(thread);
+            thread.start();
+        }
+        for (Thread thread : threads) {
+            thread.join();
+        }
+    }
+
+
+    //--------------------------Кэши для тестов------------------------------//
+
+
+    private static class ImageCacheWithNotThreadSafeFileSystem extends ImageCache {
+
+        private final Map<String, byte[]> fileSystem = new HashMap<>();
+        private boolean inWork = false;
+
+        public ImageCacheWithNotThreadSafeFileSystem(int memoryLimit) {
+            super(memoryLimit);
+        }
+
+        @Override
+        protected byte[] loadFromFile(String filename) {
+            try {
+                if (inWork) {
+                    throw new AssertionError();
+                }
+                inWork = true;
+                return fileSystem.get(filename);
+            } finally {
+                inWork = false;
+            }
+        }
+
+        @Override
+        protected void saveToFile(String filename, byte[] data) {
+            try {
+                if (inWork) {
+                    throw new AssertionError();
+                }
+                inWork = true;
+                fileSystem.put(filename, data);
+            } finally {
+                inWork = false;
+            }
+        }
+    }
 
     private static class ImageCacheWithFakeFileSystem extends ImageCache {
 
