@@ -1,6 +1,9 @@
 package bank;
 
+import bank.exception.AccountNotFoundException;
+import bank.exception.BankException;
 import bank.exception.NotEnoughMoneyException;
+import bank.exception.SameAccountException;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -14,6 +17,26 @@ import java.util.Random;
  */
 public class BankTest {
 
+    @Test(expected = SameAccountException.class)
+    public void testSameAccountTransfer() throws Exception {
+        new Bank().transfer("someNum", "someNum", 100);
+    }
+
+    @Test(expected = AccountNotFoundException.class)
+    public void testTransferForNull() throws Exception {
+        new Bank().transfer("someNum1", "someNum2", 100);
+    }
+
+    @Test(expected = AccountNotFoundException.class)
+    public void testIsBlockedForNull() throws Exception {
+        new Bank().isBlocked("someNum");
+    }
+
+
+    @Test(expected = AccountNotFoundException.class)
+    public void testGetBalanceForNull() throws Exception {
+        new Bank().getBalance("someNum");
+    }
 
     @Test(expected = NotEnoughMoneyException.class)
     public void testTransfer() throws Exception {
@@ -24,21 +47,29 @@ public class BankTest {
         //0. начальное состояние
         assert bank.getBalance(account1) == 10;
         assert bank.getBalance(account2) == 10;
+        assert !bank.isBlocked(account1);
+        assert !bank.isBlocked(account2);
 
         //1. успешный перевод
         bank.transfer(account1, account2, 3);
         assert bank.getBalance(account1) == 7;
         assert bank.getBalance(account2) == 13;
+        assert !bank.isBlocked(account1);
+        assert !bank.isBlocked(account2);
 
         //2. еще один успешный перевод
         bank.transfer(account2, account1, 10);
         assert bank.getBalance(account1) == 17;
         assert bank.getBalance(account2) == 3;
+        assert !bank.isBlocked(account1);
+        assert !bank.isBlocked(account2);
 
         //3. ошибка!
         bank.transfer(account2, account1, 10);
         assert bank.getBalance(account1) == 17;
         assert bank.getBalance(account2) == 3;
+        assert !bank.isBlocked(account1);
+        assert !bank.isBlocked(account2);
     }
 
     @Test
@@ -63,7 +94,11 @@ public class BankTest {
                 for (int i1 = 0; i1 < 10; i1++) {
                     String from = accounts.get(random.nextInt(1000));
                     String to = accounts.get(random.nextInt(1000));
-                    bank.transfer(from, to, random.nextInt(100000));
+                    try {
+                        bank.transfer(from, to, random.nextInt(100000));
+                    } catch (BankException e) {
+                        //чтобы не пачкать лог
+                    }
                     sleep(random.nextInt(2000));
                 }
             });

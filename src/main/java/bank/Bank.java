@@ -3,6 +3,7 @@ package bank;
 import bank.exception.AccountIsBlockedException;
 import bank.exception.AccountNotFoundException;
 import bank.exception.BankException;
+import bank.exception.SameAccountException;
 
 import java.util.Map;
 import java.util.Random;
@@ -31,7 +32,7 @@ public class Bank {
     public void transfer(String fromAccountNum, String toAccountNum, long amount) throws BankException {
 
         if (fromAccountNum.equals(toAccountNum)) {
-            throw new IllegalArgumentException("What's going on?");
+            throw new SameAccountException();
         }
 
         //1. получаем аккаунты если они есть
@@ -60,11 +61,11 @@ public class Bank {
     }
 
     public long getBalance(String accountNum) {
-        return accountMap.get(accountNum).getMoney();
+        return getAccount(accountNum).getMoney();
     }
 
     public boolean isBlocked(String accountNum) {
-        return accountMap.get(accountNum).isBlocked();
+        return getAccount(accountNum).isBlocked();
     }
 
     //----------------------Служба Безопасности------------------//
