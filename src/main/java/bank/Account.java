@@ -66,7 +66,7 @@ public class Account {
 
 
     public void checkIsBlocked() throws AccountIsBlockedException {
-        if (blocked.get()) {
+        if (isBlocked()) {
             throw new AccountIsBlockedException(num);
         }
     }

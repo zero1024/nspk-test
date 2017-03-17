@@ -20,7 +20,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public abstract class ImageCache {
 
     private final int memoryLimit;
-    private final Map<Integer, Data> map;
+    private final Map<Integer, Data> cache;
     private final AtomicInteger memoryUsage;
     private final AtomicInteger ids;
     private final ExecutorService executorService;
@@ -35,7 +35,7 @@ public abstract class ImageCache {
 
     public ImageCache(int memoryLimit) {
         this.memoryLimit = memoryLimit;
-        this.map = new ConcurrentHashMap<>();
+        this.cache = new ConcurrentHashMap<>();
         this.memoryUsage = new AtomicInteger();
         this.ids = new AtomicInteger();
         this.executorService = Executors.newSingleThreadExecutor();
@@ -46,11 +46,11 @@ public abstract class ImageCache {
     public int putToCache(byte[] data) {
         int id = ids.incrementAndGet();
         if (isFitToMemory(data.length)) {
-            map.put(id, new MemoryData(data));
+            cache.put(id, new MemoryData(data));
         } else {
             String filename = filename(id);
             LazyData lazyData = createLazyData(filename);
-            map.put(id, lazyData);
+            cache.put(id, lazyData);
             asyncSaveToFile(data, filename, lazyData::activate);
         }
         return id;
@@ -58,7 +58,7 @@ public abstract class ImageCache {
 
 
     public byte[] getFromCache(int id) {
-        return map.containsKey(id) ? map.get(id).getData() : null;
+        return cache.containsKey(id) ? cache.get(id).getData() : null;
     }
 
     //---------------------UTIL---------------------------//
@@ -88,8 +88,8 @@ public abstract class ImageCache {
         });
     }
 
-    private static String filename(int id) {
-        return id + "";
+    private static String filename(Integer id) {
+        return id.toString();
     }
 
     //Проверяем, что данные влезают в память. В случае если влезают, то обновляем memoryUsage в CAS режиме.
