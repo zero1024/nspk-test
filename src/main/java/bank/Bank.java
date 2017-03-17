@@ -17,6 +17,10 @@ import java.util.concurrent.Executors;
  */
 public class Bank {
 
+    /**
+     * Судя по заданию коллекция никогда не мутирует, но в реальности она должна как-то заполнитсья данными
+     * аккаунтов. Поэтому используем ConcurrentHashMap вместо HashMap.
+     */
     private final Map<String, Account> accountMap = new ConcurrentHashMap<>();
     //нам достаточно одного потока, т.к. служба безопасности все равно работает в synchronized режиме
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
