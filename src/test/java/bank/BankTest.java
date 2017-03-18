@@ -79,7 +79,7 @@ public class BankTest {
         List<String> accounts = new ArrayList<>();
         int allMoney = 0;
 
-        //1. создает 100 аккаунтов
+        //1. создаем 1000 аккаунтов
         for (int i = 0; i < 1000; i++) {
             int money = random.nextInt(100000);
             allMoney += money;

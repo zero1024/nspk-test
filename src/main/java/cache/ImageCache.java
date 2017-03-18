@@ -92,7 +92,7 @@ public abstract class ImageCache {
         return id.toString();
     }
 
-    //Проверяем, что данные влезают в память. В случае если влезают, то обновляем memoryUsage в CAS режиме.
+    //Проверяем, что данные "влезают" в память. В случае если "влезают", то обновляем memoryUsage в CAS режиме.
     private boolean isFitToMemory(int dataLength) {
         int prev, next;
         do {

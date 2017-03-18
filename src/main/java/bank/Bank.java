@@ -47,7 +47,7 @@ public class Bank {
         fromAccount.checkIsBlocked();
         toAccount.checkIsBlocked();
 
-        //3. берем деньги с одного аккаунта
+        //3. снимаем деньги с одного аккаунта
         fromAccount.retrieveMoney(amount);
 
         try {

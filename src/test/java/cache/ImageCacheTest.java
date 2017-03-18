@@ -40,7 +40,6 @@ public class ImageCacheTest {
         assert Arrays.equals(cache.getFromCache(i1), new byte[]{0, 2, 3, 7, 19});
         assert Arrays.equals(cache.getFromCache(i2), new byte[]{2, 3, 4, 1});
         assert Arrays.equals(cache.getFromCache(i3), new byte[]{1, 3});
-        sleep(10);
         assert cache.fileSystem.size() == 1;
         assert Arrays.equals(cache.fileSystem.get(i3 + ""), new byte[]{1, 3});
     }
@@ -90,7 +89,7 @@ public class ImageCacheTest {
     }
 
 
-    //--------------------------Всякое разное------------------------------//
+    //--------------------------UTIL------------------------------//
 
 
     private static class ImageCacheWithNotThreadSafeFileSystem extends ImageCache {
